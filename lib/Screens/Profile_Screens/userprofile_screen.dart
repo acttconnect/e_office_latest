@@ -14,6 +14,7 @@ class _UserProfileViewState extends State<UserProfileView> {
   String contact = '';
   String address = '';
   String state = '';
+  String joiningDate = '';
   String district = '';
   String taluka = '';
   String totalYearlyLeaves = '';
@@ -48,6 +49,7 @@ class _UserProfileViewState extends State<UserProfileView> {
       lastName = prefs.getString('last_name') ?? '';
       contact = prefs.getString('number') ?? '';
       address = prefs.getString('address') ?? '';
+      joiningDate = prefs.getString('joining_date') ?? '';
       state = prefs.getString('state') ?? '';
       district = prefs.getString('district') ?? '';
       taluka = prefs.getString('taluka') ?? '';
@@ -75,7 +77,7 @@ class _UserProfileViewState extends State<UserProfileView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[10],
+      backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
@@ -102,8 +104,8 @@ class _UserProfileViewState extends State<UserProfileView> {
                   child: Row(
                     children: [
                       Container(
-                        width: 100,
-                        height: 100,
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.blueAccent,
@@ -113,7 +115,7 @@ class _UserProfileViewState extends State<UserProfileView> {
                           ),
                         ),
                       ),
-                      SizedBox(width: 20),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,14 +123,14 @@ class _UserProfileViewState extends State<UserProfileView> {
                             Text(
                               '$firstName $lastName',
                               style: TextStyle(
-                                fontSize: 24,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
                               contact,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: Colors.grey[600],
                               ),
                             ),
@@ -153,54 +155,56 @@ class _UserProfileViewState extends State<UserProfileView> {
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    _buildSectionHeader('Personal Information'),
-                    _buildProfileInfo('State:', state),
-                    _buildProfileInfo('District:', district),
-                    _buildProfileInfo('Taluka:', taluka),
-                    _buildProfileInfo('Address:', address),
-                    _buildProfileInfo('Yearly Leaves:', totalYearlyLeaves),
+                    // _buildSectionHeader('Personal Information'),
+                    _buildProfileInfo('State', state),
+                    _buildProfileInfo('District', district),
+                    _buildProfileInfo('Taluka', taluka),
+                    _buildProfileInfo('Full Name:', '$firstName $lastName'),
+                    _buildProfileInfo('Email:', 'Not Available'),
+                    _buildProfileInfo('Mobile:', contact),
                     _buildProfileInfo('Birth Date:', birthDate),
-                    SizedBox(height: 16),
-                    _buildSectionHeader('Additional Information'),
-                    _buildProfileInfo('Caste:', caste),
-                    _buildProfileInfo('Address B:', addressB),
-                    _buildProfileInfo('Father Name:', fatherName),
-                    _buildProfileInfo('Father Address:', fatherAddress),
                     _buildProfileInfo('Birth Text:', birthText),
-                    _buildProfileInfo('Birth Mark:', birthMark),
-                    _buildProfileInfo('Height:', height),
-                    _buildProfileInfo('Qualification:', qualification),
-                    _buildProfileInfo('Another Qualification:', anotherQualification),
+                    _buildProfileInfo('Location:', address),
+                    _buildProfileInfo('Yearly Leaves:', totalYearlyLeaves),
+                    // _buildSectionHeader('Additional Information'),
+
+                    // _buildProfileInfo('Caste:', caste),
+                    // _buildProfileInfo('Address B:', addressB),
+                    // _buildProfileInfo('Father Name:', fatherName),
+                    // _buildProfileInfo('Father Address:', fatherAddress),
+                    // _buildProfileInfo('Birth Mark:', birthMark),
+                    // _buildProfileInfo('Height:', height),
+                    // _buildProfileInfo('Qualification:', qualification),
+                    // _buildProfileInfo('Another Qualification:', anotherQualification),
                     // _buildProfileInfo('Digital Signature:', digitalSig),
                     // _buildProfileInfo('Digital Signature Verify:', digitalSigVerify),
-                    _buildProfileInfo('Certificate No:', certificateNo),
-                    _buildProfileInfo('Post Name:', postName),
-
+                    // _buildProfileInfo('Certificate No:', certificateNo),
+                    // _buildProfileInfo('Post Name:', postName),
                   ],
                 ),
               ),
             ),
-            // SizedBox(height: 20),
-            // Center(
-            //   child: ElevatedButton(
-            //     onPressed: () {
-            //       Navigator.push(
-            //         context,
-            //         MaterialPageRoute(builder: (context) => UserProfileForm()),
-            //       );
-            //     },
-            //     child: Text('Edit Profile', style: TextStyle(color: Colors.white)),
-            //     style: ElevatedButton.styleFrom(
-            //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), backgroundColor: Color(0xFF4769B2),
-            //       textStyle: TextStyle(fontSize: 18),
-            //       minimumSize: Size(double.infinity, 50),
-            //     ),
-            //   ),
-            // ),
+            SizedBox(height: 20),
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => UserProfileForm()),
+                  );
+                },
+                child: Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)), backgroundColor: Color(0xFF4769B2),
+                  textStyle: TextStyle(fontSize: 18),
+                  minimumSize: Size(double.infinity, 40),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -230,7 +234,7 @@ class _UserProfileViewState extends State<UserProfileView> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
@@ -240,7 +244,7 @@ class _UserProfileViewState extends State<UserProfileView> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 color: Colors.grey[700],
               ),
             ),

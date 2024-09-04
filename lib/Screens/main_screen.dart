@@ -1,11 +1,11 @@
-import 'package:flutter/cupertino.dart';
+import 'package:e_office/Screens/add_receipt.dart';
+import 'package:e_office/Screens/dummmy.dart';
+import 'package:e_office/Screens/receipt_timeline_screen.dart';
+import 'package:e_office/Screens/Books/book_screen.dart';
 import 'package:flutter/material.dart';
-
-import 'Leaves_Screens/apply_leaves.dart';
-import 'Profile_Screens/userprofile_screen.dart';
-import 'document_screen.dart';
+import 'OtherScreens/document_screen.dart';
 import 'home_screen.dart';
-import 'other_screen.dart';
+import 'OtherScreens/other_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -24,69 +24,90 @@ class _MainScreenState extends State<MainScreen> {
         children: <Widget>[
           // Main content of the screen
           _getChildren()[_currentIndex],
-
-          // Floating bottom navigation bar with rounded corners
+          // Custom Bottom Navigation Bar
           Positioned(
             bottom: 10,
             left: 10,
             right: 10,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(30), // Rounded corners
-              child: Material(
-                elevation: 8, // Shadow effect for floating appearance
-                color: Colors.transparent,
-                child: BottomNavigationBar(
-                  currentIndex: _currentIndex,
-                  backgroundColor: Colors.grey[200],
-                  type: BottomNavigationBarType.fixed,
-                  items: <BottomNavigationBarItem>[
-                    BottomNavigationBarItem(
-                      icon: Image.asset(
-                        'assets/images/home.png',
-                        width: 24,
-                        height: 24,
-                        color: _currentIndex == 0 ? Color(0xFF4769B2) : Colors.black,
-                      ),
-                      label: 'HOME',
+              borderRadius: BorderRadius.circular(30),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                backgroundColor: Colors.grey[200],
+                type: BottomNavigationBarType.fixed,
+                items: <BottomNavigationBarItem>[
+                  BottomNavigationBarItem(
+                    icon: Image.asset(
+                      'assets/images/home.jpg',
+                      width: 24,
+                      height: 24,
+                      color: _currentIndex == 0 ? Color(0xFF4769B2) : Colors.black,
                     ),
-                    BottomNavigationBarItem(
-                      icon: Image.asset(
-                        'assets/images/b1.png',
-                        width: 24,
-                        height: 24,
-                        color: _currentIndex == 1 ? Color(0xFF4769B2) : Colors.black,
-                      ),
-                      label: 'BOOK',
+                    label: 'HOME',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Image.asset(
+                      'assets/images/b1.jpg',
+                      width: 24,
+                      height: 24,
+                      color: _currentIndex == 1 ? Color(0xFF4769B2) : Colors.black,
                     ),
-                    BottomNavigationBarItem(
-                      icon: Image.asset(
-                        'assets/images/invoices.png',
-                        width: 24,
-                        height: 24,
-                        color: _currentIndex == 2 ? Color(0xFF4769B2) : Colors.black,
-                      ),
-                      label: 'receipt',
+                    label: 'BOOK',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: SizedBox.shrink(), // Placeholder for the center icon
+                    label: '', // Empty label for the center item
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Image.asset(
+                      'assets/images/invoices.jpg',
+                      width: 24,
+                      height: 24,
+                      color: _currentIndex == 3 ? Color(0xFF4769B2) : Colors.black,
                     ),
-                    BottomNavigationBarItem(
-                      icon: Image.asset(
-                        'assets/images/more.png',
-                        width: 24,
-                        height: 24,
-                        color: _currentIndex == 3 ? Color(0xFF4769B2) : Colors.black,
-                      ),
-                      label: 'MORE',
+                    label: 'RECEIPT',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Image.asset(
+                      'assets/images/more.jpg',
+                      width: 24,
+                      height: 24,
+                      color: _currentIndex == 4 ? Color(0xFF4769B2) : Colors.black,
                     ),
-                  ],
-                  onTap: (index) {
-                    setState(() {
+                    label: 'MORE',
+                  ),
+                ],
+                onTap: (index) {
+                  setState(() {
+                    if (index == 2) {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ReceiptTimeLineScreen()));
+                      // Handle the center button tap if needed
+                    } else {
                       _currentIndex = index;
-                    });
-                  },
-                  unselectedLabelStyle: TextStyle(color: Colors.black, fontSize: 14),
-                  selectedLabelStyle: TextStyle(color: Color(0xFF4769B2), fontSize: 16),
-                  selectedItemColor: Color(0xFF4769B2),
-                  unselectedItemColor: Colors.black,
-                ),
+                    }
+                  });
+                },
+                unselectedLabelStyle: TextStyle(color: Colors.black, fontSize: 12),
+                selectedLabelStyle: TextStyle(color: Color(0xFF4769B2), fontSize: 14),
+                selectedItemColor: Color(0xFF4769B2),
+                unselectedItemColor: Colors.black,
+              ),
+            ),
+          ),
+
+          // Floating Action Button for the center
+          Positioned(
+            bottom: 20,
+            left: MediaQuery.of(context).size.width / 2 - 30,
+            child: FloatingActionButton(
+              backgroundColor: Color(0xFF4769B2),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context)=>ReceiptFormScreen()));
+              },
+              child: Icon(Icons.add, color: Colors.white),
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
               ),
             ),
           ),
@@ -98,8 +119,10 @@ class _MainScreenState extends State<MainScreen> {
   List<Widget> _getChildren() {
     return [
       HomeScreen(),
-      DocumentUploadScreen(),
+      // BookScreen(pdfUrl: 'http://www.pdf995.com/samples/pdf.pdf',),
+      BookScreen(),
       HomeScreen(),
+      ReceiptTimeLineScreen(),
       OtherScreen(),
     ];
   }

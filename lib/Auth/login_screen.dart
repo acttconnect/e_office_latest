@@ -1,7 +1,8 @@
+import 'package:e_office/Auth/otp_screen.dart';
+import 'package:e_office/Screens/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api_services.dart';
-import 'otp_screen.dart';
+import '../api_services.dart'; // Ensure the correct path to your ApiService
 
 class UserAppLoginScreen extends StatefulWidget {
   const UserAppLoginScreen({super.key});
@@ -14,18 +15,19 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _mobileController = TextEditingController();
   bool _isLoading = false;
-  String? _errorMessage;
+  String _errorMessage = ''; // Initialize as an empty string
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
-        _errorMessage = null;
+        _errorMessage = ''; // Reset error message before making the request
       });
 
       final mobileNumber = _mobileController.text.trim();
       try {
         await ApiService.login(mobileNumber);
+        print('Login successful');
 
         // Save login status to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
@@ -38,7 +40,7 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
         );
       } catch (e) {
         setState(() {
-          _errorMessage = 'Login failed: ${e.toString()}';
+          _errorMessage = 'Login failed: ${e.toString()}'; // Set error message here
         });
       } finally {
         setState(() {
@@ -64,13 +66,13 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/logo.jpg', // Ensure this asset path is correct
                     height: 80,
                     fit: BoxFit.contain,
                   ),
                   SizedBox(height: 24.0),
                   const Text(
-                    'Welcome to eoffice',
+                    'Welcome to eOffice',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
@@ -84,18 +86,8 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
                   ),
                   SizedBox(height: 30.0),
 
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: Text(
-                        _errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.red, fontSize: 16),
-                      ),
-                    ),
-
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 24.0),
+                    padding: const EdgeInsets.only(bottom: 10.0),
                     child: TextFormField(
                       controller: _mobileController,
                       decoration: InputDecoration(
@@ -118,11 +110,18 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
                       },
                     ),
                   ),
+
+                  if (_errorMessage.isNotEmpty) // Check if the error message is not empty
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Text(
+                        _errorMessage,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.red, fontSize: 16),
+                      ),
+                    ),
+
                   SizedBox(height: 24.0),
-
-                  if (_isLoading)
-                    Center(child: CircularProgressIndicator()),
-
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
@@ -132,6 +131,8 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
                     onPressed: _isLoading ? null : _handleLogin,
                     child: const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
                   ),
+                  if (_isLoading)
+                    Center(child: CircularProgressIndicator()),
                 ],
               ),
             ),
@@ -139,5 +140,11 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _mobileController.dispose();
+    super.dispose();
   }
 }

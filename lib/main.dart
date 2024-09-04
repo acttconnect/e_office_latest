@@ -1,29 +1,60 @@
-import 'package:e_office/Auth/splash_screen.dart';
-import 'package:e_office/Screens/dummmy.dart';
-import 'package:e_office/Screens/main_screen.dart';
-import 'package:e_office/Screens/nomination_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'Auth/splash_screen.dart';
+import 'Screens/dummmy.dart';
+import 'Screens/notification_screen.dart';
+import 'firebase_api.dart';
 
+final navigatorKey = GlobalKey<NavigatorState>();
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  // Initialize Flutter Local Notifications Plugin
+  const AndroidInitializationSettings initializationSettingsAndroid =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings =
+  InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) async {
+      if (response.payload != null) {
+        navigatorKey.currentState?.pushNamed(
+          NotificationScreen.route,
+          arguments: {
+            'data': response.payload,  // Pass the payload as data
+          },
+        );
+      }
+    },
+  );
+
+  await FirebaseApi().initNotification();
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  // This widget is the root of your application.
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
-        fontFamily: GoogleFonts.roboto().fontFamily,
-        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: SplashScreen(),
+      home:  const SplashScreen(),
+      navigatorKey: navigatorKey,
+      routes: {
+        NotificationScreen.route: (context) => const NotificationScreen(),
+      },
     );
   }
 }

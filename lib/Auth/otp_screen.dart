@@ -1,3 +1,4 @@
+import 'package:e_office/Screens/dummmy.dart';
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 
@@ -26,7 +27,7 @@ class _OtpScreenState extends State<OtpScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Image.asset(
-                  'assets/images/logo.png',
+                  'assets/images/logo.jpg',
                   height: 100, // Adjusted height for better visibility
                 ),
                 SizedBox(height: 24.0), // Spacing between logo and title
