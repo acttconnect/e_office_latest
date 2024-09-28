@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:e_office/Models/receipt_model.dart';
 import 'package:e_office/Screens/Profile_Screens/userprofile_screen.dart';
 import 'package:e_office/Screens/receipt_table.dart';
@@ -10,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../Models/receipt_by_status.dart';
 import '../api_services.dart';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -113,13 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setDate() {
     // Get the current date
     DateTime now = DateTime.now();
-
     // Format the day to show only the first three letters (Mon, Tue, etc.)
     String day = DateFormat('E').format(now);
-
     // Format the date as per your need (e.g., 21-Sep-2024)
     String date = DateFormat('dd MMM yyyy').format(now);
-
     // Set the formatted date
     setState(() {
       _formattedDate = '$day, $date';
@@ -129,65 +129,77 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Color(0xFF4769B2),
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(0),
+          child: Container(
+            color: Colors.grey[300],
+            height: 1,
+          ),
+        ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            InkWell(
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UserProfileView()),
+                );
+              },
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.person, color: Color(0xFF4769B2)),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome, $firstName $lastName',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        _formattedDate,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/notification');
+            },
+            icon: Icon(Icons.notifications_none_outlined, color: Colors.white),
+          ),
+        ],
+      ),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => UserProfileView()),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          backgroundColor: Color(0xFF4769B2),
-                          child: Icon(Icons.person, color: Colors.white),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Welcome, $firstName $lastName',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              _formattedDate,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/notification');
-                      },
-                      icon: Icon(Icons.notifications_none_outlined)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             // Carousel Slider for Latest Statuses
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -296,63 +308,141 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Widget 1 - Includes circular indicators and a bar chart
-class Widget1 extends StatelessWidget {
-  final List<ChartSampleData> chartData = [
-    ChartSampleData(x: 'June', approved: 10, pending: 15, rejected: 5),
-    ChartSampleData(x: 'July', approved: 20, pending: 25, rejected: 10),
-    ChartSampleData(x: 'August', approved: 30, pending: 35, rejected: 15),
-    ChartSampleData(x: 'September', approved: 40, pending: 45, rejected: 20),
-  ];
+class Widget1 extends StatefulWidget {
+  @override
+  _Widget1State createState() => _Widget1State();
+}
+
+class _Widget1State extends State<Widget1> with SingleTickerProviderStateMixin {
+  List<ChartSampleData> chartData = [];
+  late AnimationController _controller;
+  Animation<double>? _approvedAnimation;
+  Animation<double>? _pendingAnimation;
+  Animation<double>? _rejectedAnimation;
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: Duration(milliseconds: 500));
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String userId =
+          prefs.getString('id') ?? ''; // Default user ID if not found
+
+      final response = await http.post(
+        Uri.parse(
+            'https://e-office.acttconnect.com/api/get-leave-count?user_id=$userId'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        if (jsonResponse['success']) {
+          final data = jsonResponse['data'];
+          chartData = data.entries.map<ChartSampleData>((entry) {
+            final monthYear = entry.key; // "9-2024" format
+            final month = DateFormat('MMMM').format(DateTime(
+                int.parse(monthYear.split('-')[1]),
+                int.parse(monthYear.split('-')[0]))); // Get full month name
+            final values = entry.value;
+            return ChartSampleData(
+              x: month, // Use the month name
+              approved: values['Approved'],
+              pending: values['Pending'],
+              rejected: values['Rejected'],
+            );
+          }).toList();
+        }
+      } else {
+        throw Exception('Failed to load data: ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      print('Error occurred: $e');
+    } finally {
+      setState(() {
+        isLoading = false; // Stop loading data
+        _initializeAnimations(); // Initialize animations here
+      });
+    }
+  }
+
+  void _initializeAnimations() {
+    if (chartData.isNotEmpty) {
+      // Calculate totals
+      final totalApproved =
+          chartData.map((data) => data.approved).reduce((a, b) => a + b);
+      final totalPending =
+          chartData.map((data) => data.pending).reduce((a, b) => a + b);
+      final totalRejected =
+          chartData.map((data) => data.rejected).reduce((a, b) => a + b);
+      final total = totalApproved + totalPending + totalRejected;
+
+      // Calculate percentages
+      final double approvedPercentage = total > 0 ? totalApproved / total : 0;
+      final double pendingPercentage = total > 0 ? totalPending / total : 0;
+      final double rejectedPercentage = total > 0 ? totalRejected / total : 0;
+
+      // Animate percentages
+      _approvedAnimation = Tween<double>(begin: 0, end: approvedPercentage)
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+      _pendingAnimation = Tween<double>(begin: 0, end: pendingPercentage)
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+      _rejectedAnimation = Tween<double>(begin: 0, end: rejectedPercentage)
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+
+      _controller.forward(); // Start the animation
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Calculate totals
-    final totalApproved =
-        chartData.map((data) => data.approved).reduce((a, b) => a + b);
-    final totalPending =
-        chartData.map((data) => data.pending).reduce((a, b) => a + b);
-    final totalRejected =
-        chartData.map((data) => data.rejected).reduce((a, b) => a + b);
-
-    // Calculate percentages
-    final total = totalApproved + totalPending + totalRejected;
-    final double approvedPercentage = total > 0 ? totalApproved / total : 0;
-    final double pendingPercentage = total > 0 ? totalPending / total : 0;
-    final double rejectedPercentage = total > 0 ? totalRejected / total : 0;
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Circular Progress Indicators with Percentages and Labels Below
-        SizedBox(
-          height: 10,
-        ),
+        SizedBox(height: 10),
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Leave Statistics',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+        ),
+        SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildCircularIndicator(
-                  'Approved', Colors.green, approvedPercentage),
-              Spacer(),
-              _buildCircularIndicator(
-                  'Pending', Colors.blue, pendingPercentage),
-              Spacer(),
-              _buildCircularIndicator(
-                  'Rejected', Colors.red, rejectedPercentage),
+              _buildAnimatedCircularIndicator(
+                  'Approved', Colors.green, _approvedAnimation),
+              _buildAnimatedCircularIndicator(
+                  'Pending', Colors.blue, _pendingAnimation),
+              _buildAnimatedCircularIndicator(
+                  'Rejected', Colors.red, _rejectedAnimation),
             ],
           ),
         ),
         SizedBox(height: 30),
-        // Bar Chart
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            padding:
+                const EdgeInsets.only(left: 16, right: 16, bottom: 50, top: 10),
             child: BarChart(
               BarChartData(
                 barGroups: barChartGroups(chartData),
+                // Use static bar chart data
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   rightTitles:
@@ -371,7 +461,7 @@ class Widget1 extends StatelessWidget {
                             axisSide: meta.axisSide,
                             child: Center(
                               child: Text(
-                                chartData[index].x,
+                                chartData[index].x, // Use the month name from x
                                 style: TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.bold),
                               ),
@@ -391,7 +481,7 @@ class Widget1 extends StatelessWidget {
                         return SideTitleWidget(
                           axisSide: meta.axisSide,
                           child: Text(
-                            value.toString(),
+                            value.toStringAsFixed(1),
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold),
                           ),
@@ -402,16 +492,219 @@ class Widget1 extends StatelessWidget {
                 ),
                 gridData: FlGridData(show: true),
               ),
+              swapAnimationDuration: const Duration(seconds: 0),
             ),
           ),
         ),
-        SizedBox(
-          height: 50,
-        )
+        SizedBox(height: 20),
       ],
     );
   }
+
+  Widget _buildAnimatedCircularIndicator(
+      String title, Color color, Animation<double>? animation) {
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 80, // Size of the circular indicator
+              height: 80,
+              child: animation != null
+                  ? AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, child) {
+                        return CircularProgressIndicator(
+                          value: animation.value,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                          strokeWidth: 8, // Thicker circle
+                        );
+                      },
+                    )
+                  : CircularProgressIndicator(
+                      value: null,
+                      // Show a circular indicator if no animation is ready
+                      backgroundColor: Colors.grey[300],
+                      strokeWidth: 8,
+                    ),
+            ),
+            if (animation !=
+                null) // Only show percentage if the animation is available
+              AnimatedBuilder(
+                animation: animation,
+                builder: (context, child) {
+                  return Text(
+                    '${(animation.value * 100).toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: color,
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: color, // Change text color to match the status
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<BarChartGroupData> barChartGroups(List<ChartSampleData> data) {
+    return data.asMap().entries.map((entry) {
+      int index = entry.key;
+      ChartSampleData sampleData = entry.value;
+
+      return BarChartGroupData(
+        x: index,
+        barRods: [
+          BarChartRodData(
+            toY: sampleData.approved.toDouble(),
+            color: Colors.green,
+            width: 15,
+          ),
+          BarChartRodData(
+            toY: sampleData.pending.toDouble(),
+            color: Colors.blue,
+            width: 15,
+          ),
+          BarChartRodData(
+            toY: sampleData.rejected.toDouble(),
+            color: Colors.red,
+            width: 15,
+          ),
+        ],
+      );
+    }).toList();
+  }
 }
+
+// Widget 1 - Includes circular indicators and a bar chart
+// class Widget1 extends StatelessWidget {
+//   final List<ChartSampleData> chartData = [
+//     ChartSampleData(x: 'June', approved: 10, pending: 15, rejected: 5),
+//     ChartSampleData(x: 'July', approved: 20, pending: 25, rejected: 10),
+//     ChartSampleData(x: 'August', approved: 30, pending: 35, rejected: 15),
+//     ChartSampleData(x: 'September', approved: 40, pending: 45, rejected: 20),
+//   ];
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     // Calculate totals
+//     final totalApproved =
+//         chartData.map((data) => data.approved).reduce((a, b) => a + b);
+//     final totalPending =
+//         chartData.map((data) => data.pending).reduce((a, b) => a + b);
+//     final totalRejected =
+//         chartData.map((data) => data.rejected).reduce((a, b) => a + b);
+//
+//     // Calculate percentages
+//     final total = totalApproved + totalPending + totalRejected;
+//     final double approvedPercentage = total > 0 ? totalApproved / total : 0;
+//     final double pendingPercentage = total > 0 ? totalPending / total : 0;
+//     final double rejectedPercentage = total > 0 ? totalRejected / total : 0;
+//
+//     return Column(
+//       children: [
+//         // Circular Progress Indicators with Percentages and Labels Below
+//         SizedBox(
+//           height: 10,
+//         ),
+//         Padding(
+//           padding: const EdgeInsets.symmetric(
+//             horizontal: 20,
+//           ),
+//           child: Row(
+//             mainAxisAlignment: MainAxisAlignment.spaceAround,
+//             children: [
+//               _buildCircularIndicator(
+//                   'Approved', Colors.green, approvedPercentage),
+//               Spacer(),
+//               _buildCircularIndicator(
+//                   'Pending', Colors.blue, pendingPercentage),
+//               Spacer(),
+//               _buildCircularIndicator(
+//                   'Rejected', Colors.red, rejectedPercentage),
+//             ],
+//           ),
+//         ),
+//         SizedBox(height: 30),
+//         // Bar Chart
+//         Expanded(
+//           child: Padding(
+//             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+//             child: BarChart(
+//               BarChartData(
+//                 barGroups: barChartGroups(chartData),
+//                 borderData: FlBorderData(show: false),
+//                 titlesData: FlTitlesData(
+//                   rightTitles:
+//                       AxisTitles(sideTitles: SideTitles(showTitles: false)),
+//                   topTitles:
+//                       AxisTitles(sideTitles: SideTitles(showTitles: false)),
+//                   show: true,
+//                   bottomTitles: AxisTitles(
+//                     sideTitles: SideTitles(
+//                       showTitles: true,
+//                       reservedSize: 40,
+//                       getTitlesWidget: (value, meta) {
+//                         final index = value.toInt();
+//                         if (index >= 0 && index < chartData.length) {
+//                           return SideTitleWidget(
+//                             axisSide: meta.axisSide,
+//                             child: Center(
+//                               child: Text(
+//                                 chartData[index].x,
+//                                 style: TextStyle(
+//                                     fontSize: 12, fontWeight: FontWeight.bold),
+//                               ),
+//                             ),
+//                           );
+//                         } else {
+//                           return const SizedBox();
+//                         }
+//                       },
+//                     ),
+//                   ),
+//                   leftTitles: AxisTitles(
+//                     sideTitles: SideTitles(
+//                       showTitles: true,
+//                       reservedSize: 50,
+//                       getTitlesWidget: (value, meta) {
+//                         return SideTitleWidget(
+//                           axisSide: meta.axisSide,
+//                           child: Text(
+//                             value.toString(),
+//                             style: const TextStyle(
+//                                 fontSize: 12, fontWeight: FontWeight.bold),
+//                           ),
+//                         );
+//                       },
+//                     ),
+//                   ),
+//                 ),
+//                 gridData: FlGridData(show: true),
+//               ),
+//             ),
+//           ),
+//         ),
+//         SizedBox(
+//           height: 50,
+//         )
+//       ],
+//     );
+//   }
+// }
 
 // Widget 2 - Different content
 class Widget2 extends StatelessWidget {
@@ -570,7 +863,6 @@ class _Widget3State extends State<Widget3> {
     );
   }
 
-
   Future getReceiptData() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -654,109 +946,112 @@ class _Widget3State extends State<Widget3> {
                             fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          // Card 1
-                          GestureDetector(
-                            onTap: () {
-                              _navigateToDetailScreen('Approved', _receiptData!.approvedReceipts);
-                            },
-                            child: Card(
-                              color: Colors.green[50],
-                              elevation: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      "${getReceiptResponse?.approvedReceipts}",
-                                      style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green),
-                                    ),
-                                    const Text(
-                                      "Approved\nReceipts",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          color: Colors.green, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        // Card 1
+                        GestureDetector(
+                          onTap: () {
+                            _navigateToDetailScreen(
+                                'Approved', _receiptData!.approvedReceipts);
+                          },
+                          child: Card(
+                            color: Colors.green[50],
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "${getReceiptResponse?.approvedReceipts}",
+                                    style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green),
+                                  ),
+                                  const Text(
+                                    "Approved\nReceipts",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: Colors.green, fontSize: 12),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          SizedBox(width: 10),
-                          // Card 2
-                          GestureDetector(
-                            onTap: () {
-                              _navigateToDetailScreen('Pending', _receiptData!.pendingReceipts);
-                            },
-                            child: Card(
-                              color: Colors.yellow[50],
-                              elevation: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      "${getReceiptResponse?.pendingReceipts}",
-                                      style: TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.yellow[
-                                              700] // Change color here
-                                          ),
-                                    ),
-                                    Text(
-                                      "Pending\nReceipts",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          color: Colors.yellow[700],
-                                          fontSize: 12),
-                                    ),
-                                  ],
-                                ),
+                        ),
+                        SizedBox(width: 10),
+                        // Card 2
+                        GestureDetector(
+                          onTap: () {
+                            _navigateToDetailScreen(
+                                'Pending', _receiptData!.pendingReceipts);
+                          },
+                          child: Card(
+                            color: Colors.yellow[50],
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "${getReceiptResponse?.pendingReceipts}",
+                                    style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors
+                                            .yellow[700] // Change color here
+                                        ),
+                                  ),
+                                  Text(
+                                    "Pending\nReceipts",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: Colors.yellow[700],
+                                        fontSize: 12),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          SizedBox(width: 10),
-                          // Card 3
-                          GestureDetector(
-                            onTap: () {
-                              _navigateToDetailScreen('Rejected', _receiptData!.rejectedReceipts);
-                            },
-                            child: Card(
-                              color: Colors.red[50],
-                              elevation: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 10),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      "${getReceiptResponse?.rejectedReceipts}",
-                                      style: const TextStyle(
-                                          fontSize: 22,
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    const Text(
-                                      "Rejected\nReceipts",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          color: Colors.red, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
+                        ),
+                        SizedBox(width: 10),
+                        // Card 3
+                        GestureDetector(
+                          onTap: () {
+                            _navigateToDetailScreen(
+                                'Rejected', _receiptData!.rejectedReceipts);
+                          },
+                          child: Card(
+                            color: Colors.red[50],
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "${getReceiptResponse?.rejectedReceipts}",
+                                    style: const TextStyle(
+                                        fontSize: 22,
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const Text(
+                                    "Rejected\nReceipts",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: Colors.red, fontSize: 12),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],
@@ -968,5 +1263,3 @@ List<BarChartGroupData> barChartGroups(List<ChartSampleData> chartData) {
     );
   }).toList();
 }
-
-

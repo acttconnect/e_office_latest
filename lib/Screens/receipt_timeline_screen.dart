@@ -27,10 +27,12 @@ class _ReceiptTimeLineScreenState extends State<ReceiptTimeLineScreen> {
   Future<void> _fetchData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('id') ?? '0'; // Default to 0 if not found
+    print('User ID: $userId');
     final data = await _apiService.fetchReceiptsByStatus(int.parse(userId));
     setState(() {
       _receiptData = data;
-    });
+    },
+    );
   }
 
   void _navigateToDetailScreen(String status, List<ReceiptTable> receipts) {
@@ -56,28 +58,15 @@ class _ReceiptTimeLineScreenState extends State<ReceiptTimeLineScreen> {
     }
   }
 
-  // void initialize() async {
-  //   setState(() {
-  //     loading = true;
-  //   });
-  //   await _fetchData();
-  //   await getReceiptData();
-  //   setState(() {
-  //     loading = false;
-  //   });
-  // }
+  void initialize() async {
+    await getReceiptData();
+    await _fetchData();
+  }
 
   @override
-  void initState() {
+  void initState()  {
     super.initState();
-    setState(() {
-      loading = true;
-    });
-    getReceiptData();
-    _fetchData();
-    setState(() {
-      loading = false;
-    });
+    initialize();
   }
 
   @override
@@ -130,7 +119,7 @@ class _ReceiptTimeLineScreenState extends State<ReceiptTimeLineScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  "${getReceiptResponse?.approvedReceipts}",
+                                  "${getReceiptResponse?.approvedReceipts ?? 0}",
                                   style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
@@ -162,7 +151,7 @@ class _ReceiptTimeLineScreenState extends State<ReceiptTimeLineScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  "${getReceiptResponse?.pendingReceipts}",
+                                  "${getReceiptResponse?.pendingReceipts??0}",
                                   style: TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
@@ -196,7 +185,7 @@ class _ReceiptTimeLineScreenState extends State<ReceiptTimeLineScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  "${getReceiptResponse?.rejectedReceipts}",
+                                  "${getReceiptResponse?.rejectedReceipts??0}",
                                   style: const TextStyle(
                                       fontSize: 22,
                                       color: Colors.red,

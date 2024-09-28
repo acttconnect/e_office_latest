@@ -10,78 +10,124 @@ import 'Models/receipt_model.dart';
 class ApiService {
   static const String _baseUrl = 'https://e-office.acttconnect.com/api';
 
-  static Future<void> login(String mobileNumber) async {
-    final url = Uri.parse('${_baseUrl}/login-via-mobile');
-    final headers = {"Content-Type": "application/x-www-form-urlencoded"};
-    final body = {'mobile': mobileNumber};
+  // static Future<void> login(String mobileNumber) async {
+  //   final url = Uri.parse('${_baseUrl}/login-via-mobile');
+  //   final headers = {"Content-Type": "application/x-www-form-urlencoded"};
+  //   final body = {'mobile': mobileNumber};
+  //
+  //   try {
+  //     final response = await http.post(url, headers: headers, body: body);
+  //
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       final data = json.decode(response.body);
+  //
+  //       if (data['msg'] == 'Login Successfully') {
+  //         final prefs = await SharedPreferences.getInstance();
+  //         final birthDateString = data['data']['birth_date'] ?? '';
+  //         final formattedBirthDate = _formatDate(birthDateString);
+  //
+  //         // Save each piece of data with null safety checks
+  //         await prefs.setString('id', data['data']['id']?.toString() ?? '');
+  //         print(' this is my userID: ${data['data']['id']}');
+  //         await prefs.setString('otp', data['data']['otp']?.toString() ?? '');
+  //         await prefs.setString('first_name', data['data']['first_name'] ?? '');
+  //         await prefs.setString(
+  //             'middle_name', data['data']['middle_name'] ?? '');
+  //         await prefs.setString('last_name', data['data']['last_name'] ?? '');
+  //         await prefs.setString('number', data['data']['number'] ?? '');
+  //         await prefs.setString(
+  //             'joining_date', data['data']['joining_date'] ?? '');
+  //         await prefs.setString('address', data['data']['address'] ?? '');
+  //         await prefs.setString('state', data['data']['state'] ?? '');
+  //         await prefs.setString('district', data['data']['district'] ?? '');
+  //         await prefs.setString('taluka', data['data']['taluka'] ?? '');
+  //         await prefs.setInt('leaves', data['data']['leaves'] ?? 0);
+  //         await prefs.setString('email', data['data']['email'] ?? '');
+  //         await prefs.setString('caste', data['data']['caste'] ?? '');
+  //         await prefs.setString('address_B', data['data']['address_B'] ?? '');
+  //         await prefs.setString(
+  //             'father_name', data['data']['father_name'] ?? '');
+  //         await prefs.setString(
+  //             'father_address', data['data']['father_address'] ?? '');
+  //         await prefs.setString('birth_date', formattedBirthDate);
+  //         await prefs.setString('birth_text', data['data']['birth_text'] ?? '');
+  //         await prefs.setString('birth_mark', data['data']['birth_mark'] ?? '');
+  //         await prefs.setString('gender', data['data']['gender'] ?? '');
+  //         await prefs.setString('joining_start_salary',
+  //             data['data']['joining_start_salary'] ?? '');
+  //         await prefs.setString('height', data['data']['height'] ?? '');
+  //         await prefs.setString(
+  //             'qualification', data['data']['qualification'] ?? '');
+  //         await prefs.setString('another_qualification',
+  //             data['data']['another_qualification'] ?? '');
+  //         await prefs.setString(
+  //             'digital_sig', data['data']['digital_sig'] ?? '');
+  //         await prefs.setString(
+  //             'digital_sig_verify', data['data']['digital_sig_verify'] ?? '');
+  //         await prefs.setString(
+  //             'certificate_no', data['data']['certificate_no'] ?? '');
+  //         await prefs.setString('post_name', data['data']['post_name'] ?? '');
+  //         await prefs.setString('created_at', data['data']['created_at'] ?? '');
+  //         await prefs.setString('updated_at', data['data']['updated_at'] ?? '');
+  //         await prefs.setBool(
+  //             'login_status', data['data']['login_status'] ?? false);
+  //       } else {
+  //         throw Exception('Login failed: ${data['msg']}');
+  //       }
+  //     } else {
+  //       throw Exception('Failed to login: ${response.reasonPhrase}');
+  //     }
+  //   } catch (e) {
+  //     rethrow; // Propagate the exception
+  //   }
+  // }
 
-    try {
-      final response = await http.post(url, headers: headers, body: body);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
+  static Future<Map<String, dynamic>> login(String mobileNumber) async {
+    final url = Uri.parse('https://e-office.acttconnect.com/api/login-via-mobile?mobile=$mobileNumber');
+    final response = await http.post(url);
 
-        if (data['msg'] == 'Login Successfully') {
-          final prefs = await SharedPreferences.getInstance();
-          final birthDateString = data['data']['birth_date'] ?? '';
-          final formattedBirthDate = _formatDate(birthDateString);
-
-          // Save each piece of data with null safety checks
-          await prefs.setString('id', data['data']['id']?.toString() ?? '');
-          print(' this is my userID: ${data['data']['id']}');
-          await prefs.setString('otp', data['data']['otp']?.toString() ?? '');
-          await prefs.setString('first_name', data['data']['first_name'] ?? '');
-          await prefs.setString(
-              'middle_name', data['data']['middle_name'] ?? '');
-          await prefs.setString('last_name', data['data']['last_name'] ?? '');
-          await prefs.setString('number', data['data']['number'] ?? '');
-          await prefs.setString(
-              'joining_date', data['data']['joining_date'] ?? '');
-          await prefs.setString('address', data['data']['address'] ?? '');
-          await prefs.setString('state', data['data']['state'] ?? '');
-          await prefs.setString('district', data['data']['district'] ?? '');
-          await prefs.setString('taluka', data['data']['taluka'] ?? '');
-          await prefs.setInt('leaves', data['data']['leaves'] ?? 0);
-          await prefs.setString('email', data['data']['email'] ?? '');
-          await prefs.setString('caste', data['data']['caste'] ?? '');
-          await prefs.setString('address_B', data['data']['address_B'] ?? '');
-          await prefs.setString(
-              'father_name', data['data']['father_name'] ?? '');
-          await prefs.setString(
-              'father_address', data['data']['father_address'] ?? '');
-          await prefs.setString('birth_date', formattedBirthDate);
-          await prefs.setString('birth_text', data['data']['birth_text'] ?? '');
-          await prefs.setString('birth_mark', data['data']['birth_mark'] ?? '');
-          await prefs.setString('gender', data['data']['gender'] ?? '');
-          await prefs.setString('joining_start_salary',
-              data['data']['joining_start_salary'] ?? '');
-          await prefs.setString('height', data['data']['height'] ?? '');
-          await prefs.setString(
-              'qualification', data['data']['qualification'] ?? '');
-          await prefs.setString('another_qualification',
-              data['data']['another_qualification'] ?? '');
-          await prefs.setString(
-              'digital_sig', data['data']['digital_sig'] ?? '');
-          await prefs.setString(
-              'digital_sig_verify', data['data']['digital_sig_verify'] ?? '');
-          await prefs.setString(
-              'certificate_no', data['data']['certificate_no'] ?? '');
-          await prefs.setString('post_name', data['data']['post_name'] ?? '');
-          await prefs.setString('created_at', data['data']['created_at'] ?? '');
-          await prefs.setString('updated_at', data['data']['updated_at'] ?? '');
-          await prefs.setBool(
-              'login_status', data['data']['login_status'] ?? false);
-        } else {
-          throw Exception('Login failed: ${data['msg']}');
-        }
+    if (response.statusCode == 200|| response.statusCode == 201) {
+      final responseData = json.decode(response.body);
+      if (responseData['msg'] == 'OTP sent successfully') {
+        // Return both the message and the OTP
+        return {
+          'msg': responseData['msg'],
+          'otp': responseData['otp']
+        };
       } else {
-        throw Exception('Failed to login: ${response.reasonPhrase}');
+        throw Exception('Error: ${responseData['msg']}');
       }
-    } catch (e) {
-      rethrow; // Propagate the exception
+    } else {
+      throw Exception('Failed to send OTP. Please try again.');
     }
   }
 
+  static Future<Map<String, dynamic>> verifyOtp(String mobile, String otp) async {
+    final url = Uri.parse('$_baseUrl/verify-otp?mobile=$mobile&otp=$otp');
+
+    try {
+      final response = await http.post(url);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = json.decode(response.body);
+        return {
+          'status': 'success',
+          'data': responseData
+        };
+      } else {
+        return {
+          'status': 'error',
+          'message': 'Failed to verify OTP'
+        };
+      }
+    } catch (error) {
+      return {
+        'status': 'error',
+        'message': 'An error occurred: $error'
+      };
+    }
+  }
   // Function to format the birth date
   static String _formatDate(String dateString) {
     try {
@@ -98,42 +144,6 @@ class ApiService {
     }
   }
 
-  // Function to get stored user data
-  static Future<Map<String, dynamic>> getUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    return {
-      'id': prefs.getString('id'),
-      'first_name': prefs.getString('first_name'),
-      'middle_name': prefs.getString('middle_name'),
-      'last_name': prefs.getString('last_name'),
-      'number': prefs.getString('number'),
-      'address': prefs.getString('address'),
-      'state': prefs.getString('state'),
-      'district': prefs.getString('district'),
-      'taluka': prefs.getString('taluka'),
-      'leaves': prefs.getInt('leaves'),
-      'email': prefs.getString('email'),
-      'caste': prefs.getString('caste'),
-      'gender': prefs.getString('gender'),
-      'joining_start_salary': prefs.getString('joining_start_salary'),
-      'address_B': prefs.getString('address_B'),
-      'father_name': prefs.getString('father_name'),
-      'father_address': prefs.getString('father_address'),
-      'birth_date': prefs.getString('birth_date'),
-      'birth_text': prefs.getString('birth_text'),
-      'birth_mark': prefs.getString('birth_mark'),
-      'height': prefs.getString('height'),
-      'qualification': prefs.getString('qualification'),
-      'another_qualification': prefs.getString('another_qualification'),
-      'digital_sig': prefs.getString('digital_sig'),
-      'digital_sig_verify': prefs.getString('digital_sig_verify'),
-      'certificate_no': prefs.getString('certificate_no'),
-      'post_name': prefs.getString('post_name'),
-      'created_at': prefs.getString('created_at'),
-      'updated_at': prefs.getString('updated_at'),
-      'login_status': prefs.getBool('login_status'),
-    };
-  }
 
   Future<void> submitLeaveRequest({
     required String userId,
@@ -169,7 +179,7 @@ class ApiService {
           // Ensure totalLeaveDays is included
         }),
       );
-      print('User ID: ${42}');
+      print('User ID: $userId');
       print('Leave Start Date: $leaveStartDate');
       print('Leave End Date: $leaveEndDate');
       print('Leave Applied Start Date: $leaveAppliedStartDate');
@@ -323,58 +333,6 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print("Error: $e");
-      return false;
-    }
-  }
-
-  Future<bool> storeChecklist({
-    required String pageFile,
-    required String checklistName,
-    required String processStatus,
-    required String receiptProcessStatus,
-    String? receiptNumber,
-    required String status,
-    required String receiptStatus,
-    required int userId,
-  }) async {
-    final url = Uri.parse('https://e-office.acttconnect.com/api/store-checklist');
-
-    // Prepare the request body
-    final body = jsonEncode({
-      'page_file': pageFile,
-      'checklist_name': checklistName,
-      'process_status': processStatus,
-      'receipt_process_status': receiptProcessStatus,
-      if (receiptNumber != null) 'receipt_no': receiptNumber,
-      'status': status,
-      'receipt_status': receiptStatus,
-      'user_id': userId,
-    });
-
-    print('Request body: $body');  // Debugging line
-
-    try {
-      // Send the POST request
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
-
-      // Handle the response
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        print('Response body: ${response.body}');  // Debugging line
-        return data['success'] == true;
-      } else {
-        print('Response status: ${response.statusCode}'); // Debugging line
-        print('Response body: ${response.body}'); // Debugging line
-        throw Exception('Failed to submit the checklist');
-      }
-    } catch (error) {
-      print('Error in storeChecklist: $error');
       return false;
     }
   }

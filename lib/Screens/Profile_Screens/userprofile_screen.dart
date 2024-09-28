@@ -138,8 +138,14 @@ class _UserProfileViewState extends State<UserProfileView> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => UserAppLoginScreen()));
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.clear(); // Clear all preferences to log out
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => UserAppLoginScreen()),
+                                (Route<dynamic> route) => false,
+                          );
                         },
                         icon: Icon(Icons.logout, color: Colors.red),
                       ),

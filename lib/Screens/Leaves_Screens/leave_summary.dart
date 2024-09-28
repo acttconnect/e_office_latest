@@ -4,6 +4,8 @@ import 'package:e_office/Screens/Leaves_Screens/total_leaves_request.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LeaveSummaryScreen extends StatefulWidget {
   const LeaveSummaryScreen({Key? key}) : super(key: key);
@@ -13,26 +15,42 @@ class LeaveSummaryScreen extends StatefulWidget {
 }
 
 class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
+  double approvedPercentage = 0;
+  double pendingPercentage = 0;
+  double rejectedPercentage = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchLeaveData();
+  }
+
+  Future<void> fetchLeaveData() async {
+    final response = await http.post(Uri.parse('https://e-office.acttconnect.com/api/get-leave-count?user_id=42'));
+
+    if (response.statusCode == 200||response.statusCode == 201) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data['success']) {
+        final leaveData = data['data']['9-2024']; // Adjust this for the appropriate month key
+
+        setState(() {
+          approvedPercentage = leaveData['Approved_Percentage'] / 100;
+          pendingPercentage = leaveData['Pending_Percentage'] / 100;
+          rejectedPercentage = leaveData['Rejected_Percentage'] / 100;
+          isLoading = false;
+        });
+      }
+    } else {
+      // Handle error
+      setState(() {
+        isLoading = false; // Stop loading on error
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<ChartSampleData> chartData = [
-      ChartSampleData(x: 'June', approved: 10, pending: 15, rejected: 5),
-      ChartSampleData(x: 'July', approved: 20, pending: 25, rejected: 10),
-      ChartSampleData(x: 'August', approved: 30, pending: 35, rejected: 15),
-      ChartSampleData(x: 'September', approved: 40, pending: 45, rejected: 20),
-    ];
-
-    // Calculate totals
-    final totalApproved = chartData.map((data) => data.approved).reduce((a, b) => a + b);
-    final totalPending = chartData.map((data) => data.pending).reduce((a, b) => a + b);
-    final totalRejected = chartData.map((data) => data.rejected).reduce((a, b) => a + b);
-
-    // Calculate percentages
-    final total = totalApproved + totalPending + totalRejected;
-    final double approvedPercentage = total > 0 ? totalApproved / total : 0;
-    final double pendingPercentage = total > 0 ? totalPending / total : 0;
-    final double rejectedPercentage = total > 0 ? totalRejected / total : 0;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -46,7 +64,9 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
         backgroundColor: const Color(0xFF4769B2),
         title: const Text('Leaves', style: TextStyle(color: Colors.white, fontSize: 20)),
       ),
-      body: Padding(
+      body: isLoading
+          ? Center(child: CircularProgressIndicator()) // Loading indicator
+          : Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +104,7 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
                 child: BarChart(
                   BarChartData(
-                    barGroups: barChartGroups(chartData),
+                    barGroups: barChartGroups(), // Pass the month names and data here
                     borderData: FlBorderData(show: false),
                     titlesData: FlTitlesData(
                       rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -95,19 +115,21 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
                           showTitles: true,
                           reservedSize: 50,
                           getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index >= 0 && index < chartData.length) {
-                              return SideTitleWidget(
-                                axisSide: meta.axisSide,
-                                child: Center(
-                                  child: Text(
-                                    chartData[index].x,
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              );
-                            } else {
-                              return const SizedBox();
+                            // Show the month name on the x-axis
+                            switch (value.toInt()) {
+                              case 0:
+                                return SideTitleWidget(
+                                  axisSide: meta.axisSide,
+                                  child: Text('Sep', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                );
+                              case 1:
+                                return SideTitleWidget(
+                                  axisSide: meta.axisSide,
+                                  child: Text('Oct', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                );
+                            // Add more cases for additional months if needed
+                              default:
+                                return const SizedBox();
                             }
                           },
                         ),
@@ -145,7 +167,7 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
         selectedLabelStyle: const TextStyle(color: Color(0xFF4769B2), fontSize: 14),
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today,),
+            icon: Icon(Icons.calendar_today),
             label: 'Date',
           ),
           BottomNavigationBarItem(
@@ -185,7 +207,7 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
             // Navigate to Leave Dashboard when "Apply" is selected
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) =>  LeaveManagementForm()),
+              MaterialPageRoute(builder: (context) => LeaveManagementForm()),
             );
           } else if (index == 2) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => TotalLeaveRequests()));
@@ -236,57 +258,29 @@ class _LeaveSummaryScreenState extends State<LeaveSummaryScreen> {
     );
   }
 
-  List<BarChartGroupData> barChartGroups(List<ChartSampleData> chartData) {
-    return chartData.asMap().entries.map((entry) {
-      final index = entry.key;
-      final data = entry.value;
-      return BarChartGroupData(
-        x: index,
+  List<BarChartGroupData> barChartGroups() {
+    // Return a single group of data for the current month
+    return [
+      BarChartGroupData(
+        x: 0, // September
         barRods: [
           BarChartRodData(
-            toY: data.approved.toDouble() + data.pending.toDouble() + data.rejected.toDouble(),
-            color: Colors.red,
-            width: 20,
-            borderRadius: BorderRadius.zero,
-            backDrawRodData: BackgroundBarChartRodData(
-              show: true,
-              toY: data.approved.toDouble() + data.pending.toDouble() + data.rejected.toDouble(),
-              color: Colors.grey.withOpacity(0.2),
-            ),
-          ),
-          BarChartRodData(
-            toY: data.approved.toDouble() + data.pending.toDouble(),
-            color: Colors.blue,
-            width: 20,
-            borderRadius: BorderRadius.zero,
-            backDrawRodData: BackgroundBarChartRodData(
-              show: true,
-              toY: data.approved.toDouble() + data.pending.toDouble(),
-              color: Colors.grey.withOpacity(0.2),
-            ),
-          ),
-          BarChartRodData(
-            toY: data.approved.toDouble(),
+            toY: approvedPercentage * 100, // Approved percentage
             color: Colors.green,
             width: 20,
-            borderRadius: BorderRadius.zero,
-            backDrawRodData: BackgroundBarChartRodData(
-              show: true,
-              toY: data.approved.toDouble(),
-              color: Colors.grey.withOpacity(0.2),
-            ),
+          ),
+          BarChartRodData(
+            toY: pendingPercentage * 100, // Pending percentage
+            color: Colors.blue,
+            width: 20,
+          ),
+          BarChartRodData(
+            toY: rejectedPercentage * 100, // Rejected percentage
+            color: Colors.red,
+            width: 20,
           ),
         ],
-      );
-    }).toList();
+      ),
+    ];
   }
-}
-
-class ChartSampleData {
-  ChartSampleData({required this.x, required this.approved, required this.pending, required this.rejected});
-
-  final String x;
-  final int approved;
-  final int pending;
-  final int rejected;
 }

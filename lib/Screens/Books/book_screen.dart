@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:e_office/Screens/OtherScreens/document_screen.dart';
 import 'package:e_office/Screens/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'add_checklist.dart';
 import 'dart:io';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/widgets.dart' as pdfWidgets;
 import 'package:http/http.dart' as http;
 
@@ -41,7 +44,7 @@ class _BookScreenState extends State<BookScreen>
   Timer? _debounce;
   int _searchResultIndex = 0;
   List<String> _searchResults = [];
-
+  bool _isLoading = false;
   String? selectedCategory;
   List<String> categories = [];
 
@@ -51,6 +54,7 @@ class _BookScreenState extends State<BookScreen>
     _tabController = TabController(length: 2, vsync: this);
     _oldBookController = PdfViewerController();
     _eBookController = PdfViewerController();
+    print(oldBookUrl);
     _downloadPdf(oldBookUrl, 'old_book.pdf', isOldBook: true);
     _downloadPdf(eBookUrl, 'e_book.pdf', isOldBook: false);
     _searchController.addListener(_onSearchChanged);
@@ -101,29 +105,7 @@ class _BookScreenState extends State<BookScreen>
   }
 
   Future<bool> _isFileComplete(String filePath) async {
-    // Implement your logic to check file integrity (e.g., size or hash check)
-    return true; // Placeholder for actual check
-  }
-
-  Future<String?> _downloadSpecificPage(int pageNumber) async {
-    // Logic to extract the specific page from the PDF
-    // This is a placeholder; you'll need a library to extract pages.
-    final pdfFile = _tabController.index == 0 ? oldBookPath : eBookPath;
-    if (pdfFile == null) return null;
-
-    String pageFilePath =
-        '${(await getApplicationDocumentsDirectory()).path}/page_$pageNumber.pdf';
-
-    // Here, implement the actual page extraction logic
-    // For example, using a PDF manipulation library
-    // (Note: This part needs a suitable library to extract pages)
-
-    // Simulate downloading the specific page
-    await Future.delayed(
-        Duration(seconds: 2)); // Simulate the time taken to process
-
-    // Assuming the page has been successfully saved at pageFilePath
-    return pageFilePath;
+    return true;
   }
 
   void _onSearchChanged() {
@@ -149,18 +131,14 @@ class _BookScreenState extends State<BookScreen>
     setState(() {
       _isLoadingSearch = true; // Start loading for search
     });
-
     await Future.delayed(Duration(seconds: 1)); // Simulate search delay
-
     if (isOldBook) {
       _oldBookController.searchText(searchText);
     } else {
       _eBookController.searchText(searchText);
     }
-
     setState(() {
-      // in search results, you can get the search results from the controller and set it here so search results will know no. of search results
-      _searchResults= [];
+      _searchResults = [];
       _isLoadingSearch = false; // Stop loading after search completes
     });
   }
@@ -187,22 +165,21 @@ class _BookScreenState extends State<BookScreen>
   void _previousPage() {
     if (_tabController.index == 0) {
       _oldBookController.previousPage();
-    }else {
+    } else {
       _eBookController.previousPage();
     }
   }
 
-
   void _addToChecklist(int currentPage) async {
-    String? pagePath = await _downloadSpecificPage(currentPage);
-    if (pagePath != null) {
+    File? pageFile = await downloadSpecificPageAsFile(currentPage);
+    if (pageFile != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ChecklistForm(
             bookType: _tabController.index == 0 ? 'Old Book' : 'eBook',
             currentPage: currentPage,
-            pagePath: pagePath,
+            pageFile: pageFile,
           ),
         ),
       );
@@ -238,15 +215,24 @@ class _BookScreenState extends State<BookScreen>
     }
   }
 
-  void _showCategoryDialog(int currentPage) {
+  void _showCategoryDialog(int currentPage) async {
     if (categories.isEmpty) {
       return;
     }
+    String? pagePath = await downloadSpecificPageAsFile(currentPage)
+        .then((value) => value?.path);
+
+    if (pagePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to get the page PDF')),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          // Use StatefulBuilder to manage state within the dialog
           builder: (BuildContext context, StateSetter setState) {
             return AlertDialog(
               title: Text('Select Category'),
@@ -266,7 +252,6 @@ class _BookScreenState extends State<BookScreen>
                       style: TextStyle(color: Colors.black),
                       underline: SizedBox(),
                       isExpanded: true,
-                      // Ensures the dropdown covers the full width
                       padding: EdgeInsets.symmetric(horizontal: 10),
                       items: categories.map((String category) {
                         return DropdownMenuItem<String>(
@@ -276,10 +261,19 @@ class _BookScreenState extends State<BookScreen>
                       }).toList(),
                       onChanged: (String? newValue) {
                         setState(() {
-                          selectedCategory =
-                              newValue; // Set the selected category in the dialog state
+                          selectedCategory = newValue; // Set selected category in dialog state
                         });
                       },
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  // Text('Preview of the selected page:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 10),
+                  Container(
+                    height: 300, // Set a fixed height for the PDF viewer
+                    child: SfPdfViewer.file(
+                      File(pagePath),
+                      controller: PdfViewerController(),
                     ),
                   ),
                 ],
@@ -295,8 +289,7 @@ class _BookScreenState extends State<BookScreen>
                   child: Text('Add'),
                   onPressed: () {
                     if (selectedCategory != null) {
-                      _addToDocumentWithCategory(
-                          currentPage, selectedCategory!);
+                      _uploadSelectedPage(pagePath, selectedCategory!); // Call the upload method
                       Navigator.of(context).pop();
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -312,63 +305,134 @@ class _BookScreenState extends State<BookScreen>
       },
     );
   }
-
-  void _addToDocumentWithCategory(int currentPage, String category) async {
-    String? pagePath = await _downloadSpecificPage(currentPage);
-    if (pagePath != null) {
-      print(
-          'Adding page $currentPage to document from path $pagePath with category $category');
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DocumentUploadScreen(
-            bookType: _tabController.index == 0 ? 'Old Book' : 'eBook',
-            currentPage: currentPage,
-            pagePath: pagePath,
-            category: category,
-          ),
-        ),
+  Future<void> _uploadSelectedPage(String pagePath, String category) async {
+    if (pagePath.isEmpty || category.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a page and category before submitting')),
       );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true; // Show loading indicator
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('id');
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User ID not found')),
+      );
+      setState(() {
+        _isLoading = false; // Hide loading indicator
+      });
+      return;
+    }
+
+    final uri = Uri.parse('https://e-office.acttconnect.com/api/add-user-document');
+
+    try {
+      // Create the multipart request
+      var request = http.MultipartRequest('POST', uri)
+        ..fields['user_id'] = userId
+        ..fields['doc_name'] = category;
+
+      // Ensure the file exists
+      final file = File(pagePath);
+      if (await file.exists()) {
+        print('File exists at: $pagePath');
+        // Add the file to the request
+        request.files.add(await http.MultipartFile.fromPath('documents[0][file]', file.path));
+      } else {
+        print('File does not exist at: $pagePath');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File does not exist at the specified path')),
+        );
+        return;
+      }
+
+      // Debugging output to check the request fields and files
+      print('Request fields: ${request.fields}');
+      print('Request files:');
+      for (var f in request.files) {
+        print(' - Filename: ${f.filename}, Length: ${f.length} bytes, Path: ${f.field}');
+      }
+
+      // Send the request
+      final response = await request.send();
+
+      // Read the response body
+      final responseBody = await response.stream.bytesToString();
+
+      // Check the response status
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('File uploaded successfully: $responseBody');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File uploaded successfully')),
+        );
+      } else {
+        print('Failed to upload file: ${response.statusCode}, Body: $responseBody');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload file: ${response.statusCode}'),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Exception: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred during file upload')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false; // Hide loading indicator
+      });
     }
   }
-
-  Future<String?> downloadSpecificPage(
-      String originalPdfPath, int pageNumber) async {
+  Future<File?> downloadSpecificPageAsFile(int pageNumber) async {
     try {
-      // Get the app's document directory
       final directory = await getApplicationDocumentsDirectory();
       final pagePath = '${directory.path}/page_$pageNumber.pdf';
-
       // Open the original PDF file
-      final pdfDocument = await PdfDocument.openFile(originalPdfPath);
+      final pdfDocument = await PdfDocument.openFile(
+          _tabController.index == 0 ? oldBookPath! : eBookPath!);
+      // Check if the page number is valid
+      if (pageNumber < 1 || pageNumber > pdfDocument.pagesCount) {
+        print('Invalid page number: $pageNumber');
+        return null;
+      }
 
-      // The number of pages in the PDF can be checked manually if you know the structure
-      // but here we skip that for simplicity.
-
-      // Create a new PDF document
-      final pdf = pdfWidgets.Document();
-
-      // Here you should add the content of the specific page
+      // Load the specific page
+      final page = await pdfDocument.getPage(pageNumber);
+      final pageImage = await page.render(
+        width: page.width,
+        height: page.height,
+      );
+      // Null check for pageImage.bytes
+      if (pageImage?.bytes == null) {
+        print("Failed to render the page image.");
+        return null;
+      }
+      final pdf = pw.Document();
+      // Convert the page image to a widget and add it to a new PDF document
       pdf.addPage(
-        pdfWidgets.Page(
+        pw.Page(
           build: (context) {
-            return pdfWidgets.Center(
-              child: pdfWidgets.Text(
-                  'This is content from page $pageNumber'), // Placeholder text
+            return pw.Image(
+              pw.MemoryImage(pageImage!.bytes),
+              // Ensure bytes is non-null using '!'
+              fit: pw.BoxFit.contain,
             );
           },
         ),
       );
-
       // Save the PDF file
       final pdfFile = File(pagePath);
       await pdfFile.writeAsBytes(await pdf.save());
-
       // Verify the file creation
       if (await pdfFile.exists()) {
         print("File saved successfully at: $pagePath");
-        return pagePath;
+        return pdfFile;
       } else {
         print("Failed to save file at: $pagePath");
         return null;
@@ -378,44 +442,30 @@ class _BookScreenState extends State<BookScreen>
       return null;
     }
   }
-
-  void _sharePage(
-      BuildContext context, String originalPdfPath, int currentPage) async {
-    String? pagePath = await downloadSpecificPage(originalPdfPath, currentPage);
-
-    if (pagePath != null && await File(pagePath).exists()) {
-      final file = File(pagePath);
-
-      // Ensure the file is a PDF
-      if (file.path.endsWith('.pdf')) {
-        try {
-          final xFile = XFile(pagePath);
-
-          // Share the file with a description
-          await Share.shareXFiles([xFile], text: 'Check out this PDF page!');
-          print("Sharing PDF at: $pagePath"); // Debug print for sharing
-        } catch (e) {
-          print('Error sharing the file: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to share the PDF.')),
-          );
-        }
-      } else {
+  void _sharePage(BuildContext context, int currentPage) async {
+    File? pdfFile = await downloadSpecificPageAsFile(currentPage);
+    if (pdfFile != null && await pdfFile.exists()) {
+      try {
+        final xFile = XFile(pdfFile.path);
+        await Share.shareXFiles([xFile], text: 'Check out this PDF page!');
+        print("Sharing PDF at: ${pdfFile.path}"); // Debug print for sharing
+      } catch (e) {
+        print('Error sharing the file: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('The file is not a PDF.')),
+          SnackBar(content: Text('Failed to share the PDF.')),
         );
       }
     } else {
-      print('File does not exist: $pagePath');
+      print('File does not exist: ${pdfFile?.path}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Failed to share the page or file does not exist.')),
+          content: Text('Failed to share the page or file does not exist.'),
+        ),
       );
     }
   }
 
 // Inside _BookScreenState
-
   void _sharePdf() async {
     String? pdfPath = _tabController.index == 0 ? oldBookPath : eBookPath;
     if (pdfPath != null && await File(pdfPath).exists()) {
@@ -527,10 +577,25 @@ class _BookScreenState extends State<BookScreen>
               } else if (value == 'Share PDF') {
                 _sharePdf();
               } else if (value == 'Share Page') {
-                _sharePage(
-                    context,
-                    _tabController.index == 0 ? oldBookPath! : eBookPath!,
-                    currentPage);
+                _sharePage(context, currentPage);
+              } else if(value == 'Download PDF'){
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    ElevatedButton(
+                      onPressed: (){
+                        _downloadPdf(oldBookUrl, 'old_book.pdf', isOldBook: true);
+                      },
+                      child: Text('Download Old Book'),
+                    ),
+                    ElevatedButton(
+                      onPressed:(){
+                        _downloadPdf(eBookUrl, 'e_book.pdf', isOldBook: false);
+                      },
+                      child: Text('Download eBook'),
+                    ),
+                  ],
+                );
               }
             },
             itemBuilder: (context) => [
@@ -549,6 +614,10 @@ class _BookScreenState extends State<BookScreen>
               PopupMenuItem(
                 value: 'Share Page',
                 child: Text('Share Current Page'),
+              ),
+              PopupMenuItem(
+                value: 'Download PDF',
+                child: Text('Download PDF'),
               ),
             ],
           )
@@ -583,26 +652,23 @@ class _BookScreenState extends State<BookScreen>
                 Center(
                   child: isOldBookDownloading
                       ? CircularProgressIndicator()
-                      : oldBookPath != null
-                          ? SfPdfViewer.file(
-                              File(oldBookPath!),
-                              controller: _oldBookController,
-                            )
-                          : Text('Failed to download Old Book PDF'),
+                      : SfPdfViewer.network(
+                    oldBookUrl, // Using the oldBookUrl
+                    controller: _oldBookController,
+                  ),
                 ),
                 Center(
                   child: isEBookDownloading
                       ? CircularProgressIndicator()
-                      : eBookPath != null
-                          ? SfPdfViewer.file(
-                              File(eBookPath!),
-                              controller: _eBookController,
-                            )
-                          : Text('Failed to download eBook PDF'),
+                      : SfPdfViewer.network(
+                    eBookUrl, // Using the eBookUrl
+                    controller: _eBookController,
+                  ),
                 ),
               ],
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             child: Row(

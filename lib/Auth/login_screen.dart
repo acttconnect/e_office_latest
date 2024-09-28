@@ -1,5 +1,4 @@
 import 'package:e_office/Auth/otp_screen.dart';
-import 'package:e_office/Screens/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api_services.dart'; // Ensure the correct path to your ApiService
@@ -15,32 +14,46 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _mobileController = TextEditingController();
   bool _isLoading = false;
-  String _errorMessage = ''; // Initialize as an empty string
+  String _errorMessage = '';
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
-        _errorMessage = ''; // Reset error message before making the request
+        _errorMessage = ''; // Reset error message
       });
 
       final mobileNumber = _mobileController.text.trim();
       try {
-        await ApiService.login(mobileNumber);
-        print('Login successful');
+        // Call the API to get OTP and the message
+        final response = await ApiService.login(mobileNumber);
 
-        // Save login status to SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
+        // Debugging the response
+        print('API Response: $response');
 
-        // Navigate to OtpScreen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => OtpScreen()),
-        );
+        // Check if the response contains the 'otp' field
+        if (response['otp'] is int) {
+          // Convert the OTP to a String
+          final otp = response['otp'].toString();
+
+          print('Login successful, OTP: $otp');
+
+          // Save login status to SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_logged_in', true);
+
+          // Navigate to OtpScreen with the OTP
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => OtpScreen(phoneNumber: mobileNumber, otp: otp)),
+          );
+        } else {
+          // Handle the case where 'otp' is not an int
+          throw Exception('Unexpected response format: OTP is not an int');
+        }
       } catch (e) {
         setState(() {
-          _errorMessage = 'Login failed: ${e.toString()}'; // Set error message here
+          _errorMessage = 'Login failed: ${e.toString()}';
         });
       } finally {
         setState(() {
@@ -111,7 +124,7 @@ class _UserAppLoginScreenState extends State<UserAppLoginScreen> {
                     ),
                   ),
 
-                  if (_errorMessage.isNotEmpty) // Check if the error message is not empty
+                  if (_errorMessage.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10.0),
                       child: Text(

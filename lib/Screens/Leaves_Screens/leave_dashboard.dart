@@ -1,62 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'approved_leaves.dart';
 import 'pending_leaves.dart';
 import 'rejected_leaves.dart';
 import 'total_leaves_request.dart';
 
-class LeaveDashboard extends StatelessWidget {
-  final List<Map<String, String>> leaveRequests = [
-    {
-      'name': 'John Doe',
-      'leaveType': 'Sick Leave',
-      'startDate': '2024-08-20',
-      'endDate': '2024-08-22',
-      'status': 'Pending',
-    },
-    {
-      'name': 'Jane Smith',
-      'leaveType': 'Annual Leave',
-      'startDate': '2024-08-15',
-      'endDate': '2024-08-18',
-      'status': 'Approved',
-    },
-    {
-      'name': 'Alice Johnson',
-      'leaveType': 'Casual Leave',
-      'startDate': '2024-08-25',
-      'endDate': '2024-08-26',
-      'status': 'Pending',
-    },
-    {
-      'name': 'Bob Brown',
-      'leaveType': 'Sick Leave',
-      'startDate': '2024-08-10',
-      'endDate': '2024-08-12',
-      'status': 'Rejected',
-    }
-  ];
+class LeaveDashboard extends StatefulWidget {
+  const LeaveDashboard({Key? key}) : super(key: key);
 
-  LeaveDashboard({Key? key}) : super(key: key);
+  @override
+  _LeaveDashboardState createState() => _LeaveDashboardState();
+}
 
-  // Calculate leave statistics
-  Map<String, int> get leaveStats {
-    final totalLeaves = leaveRequests.length;
-    final approved = leaveRequests.where((request) => request['status'] == 'Approved').length;
-    final pending = leaveRequests.where((request) => request['status'] == 'Pending').length;
-    final rejected = leaveRequests.where((request) => request['status'] == 'Rejected').length;
+class _LeaveDashboardState extends State<LeaveDashboard> {
+  int totalLeaves = 0;
+  int approvedLeaves = 0;
+  int pendingLeaves = 0;
+  int rejectedLeaves = 0;
+  bool isLoading = true;
 
-    return {
-      'Approved': approved,
-      'Pending': pending,
-      'Rejected': rejected,
-    };
+  @override
+  void initState() {
+    super.initState();
+    fetchLeaveCounts();
   }
 
+  Future<void> fetchLeaveCounts() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('id');
+
+    if (userId != null) {
+      final response = await http.post(
+        Uri.parse(
+            'https://e-office.acttconnect.com/api/get-leave-count?user_id=$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200||response.statusCode == 201){
+        final data = json.decode(response.body);
+        if (data['success'] && data['data'].isNotEmpty) {
+          // Accessing the leave data for the current month
+          final leaveData = data['data'].values.first;
+
+          setState(() {
+            totalLeaves = leaveData['Total']; // Accessing Total leaves
+            approvedLeaves = leaveData['Approved']; // Accessing Approved leaves
+            pendingLeaves = leaveData['Pending']; // Accessing Pending leaves
+            rejectedLeaves = leaveData['Rejected']; // Accessing Rejected leaves
+            isLoading = false; // Stop loading on successful fetch
+          });
+        } else {
+          // Handle the case where there is no leave data
+          print('No leave data available.');
+          setState(() {
+            isLoading = false;
+          });
+        }
+      } else {
+        // Handle error
+        print('Failed to fetch leave counts: ${response.statusCode} - ${response.body}');
+        setState(() {
+          isLoading = false; // Stop loading on error
+        });
+      }
+    } else {
+      // Handle user ID not found
+      print('User ID not found in shared preferences');
+      setState(() {
+        isLoading = false; // Stop loading if user ID is not available
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final leaveStats = this.leaveStats;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -73,7 +94,9 @@ class LeaveDashboard extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontSize: 20),
         ),
       ),
-      body: Padding(
+      body: isLoading
+          ? Center(child: CircularProgressIndicator()) // Show loading indicator
+          : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,18 +104,19 @@ class LeaveDashboard extends StatelessWidget {
             _buildSummaryCard(
               context,
               title: 'Total Leave Requests',
-              count: leaveRequests.length.toString(),
+              count: totalLeaves.toString(),
               color: Color(0xFF4769B2),
               icon: Icons.insert_chart,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => TotalLeaveRequests()),
+                MaterialPageRoute(
+                    builder: (context) => TotalLeaveRequests()),
               ),
             ),
             _buildSummaryCard(
               context,
               title: 'Pending Requests',
-              count: leaveStats['Pending']?.toString() ?? '0',
+              count: pendingLeaves.toString(),
               color: Color(0xFFfcb414),
               icon: Icons.hourglass_empty,
               onTap: () => Navigator.push(
@@ -103,7 +127,7 @@ class LeaveDashboard extends StatelessWidget {
             _buildSummaryCard(
               context,
               title: 'Approved Requests',
-              count: leaveStats['Approved']?.toString() ?? '0',
+              count: approvedLeaves.toString(),
               color: Colors.green,
               icon: Icons.check_circle,
               onTap: () => Navigator.push(
@@ -114,7 +138,7 @@ class LeaveDashboard extends StatelessWidget {
             _buildSummaryCard(
               context,
               title: 'Rejected Requests',
-              count: leaveStats['Rejected']?.toString() ?? '0',
+              count: rejectedLeaves.toString(),
               color: Colors.red,
               icon: Icons.cancel,
               onTap: () => Navigator.push(
@@ -147,7 +171,8 @@ class LeaveDashboard extends StatelessWidget {
         leading: Icon(icon, color: Colors.white, size: 32),
         title: Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         subtitle: Text(
           count,
@@ -159,213 +184,3 @@ class LeaveDashboard extends StatelessWidget {
     );
   }
 }
-
-
-// // Pie Chart
-// Card(
-//   elevation: 2,
-//   color: Colors.white,
-//   child: Container(
-//     height: 200,
-//     child: Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-//       child: PieChart(
-//         dataMap: leaveStats,
-//         chartType: ChartType.ring,
-//         colorList: [Colors.green, Color(0xFFfcb414), Colors.red],
-//         legendOptions: LegendOptions(
-//           showLegends: true,
-//           legendPosition: LegendPosition.right,
-//           legendTextStyle: TextStyle(fontSize: 16, color: Colors.black),
-//         ),
-//         chartValuesOptions: ChartValuesOptions(
-//           showChartValuesInPercentage: true,
-//           showChartValues: true,
-//           showChartValuesOutside: true,
-//           chartValueStyle: TextStyle(color: Colors.black),
-//         ),
-//       ),
-//     ),
-//   ),
-// ),
-// SizedBox(height: 16),
-// // Linear Progress Indicator for remaining leaves
-// Card(
-//   elevation: 2,
-//   color: Colors.white,
-//   child: Padding(
-//     padding: const EdgeInsets.all(16.0),
-//     child: Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         Text(
-//           'Remaining Leaves',
-//           style: TextStyle(
-//             fontSize: 18,
-//             fontWeight: FontWeight.bold,
-//             color: Colors.black,
-//           ),
-//         ),
-//         SizedBox(height: 8),
-//         LinearProgressIndicator(
-//           value: remainingLeavePercentage,
-//           backgroundColor: Colors.grey[300],
-//           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4769B2)),
-//         ),
-//         SizedBox(height: 8),
-//         Text(
-//           '${remainingLeaves.toStringAsFixed(2)} of 10 days remaining',
-//           style: TextStyle(fontSize: 16, color: Colors.black),
-//         ),
-//       ],
-//     ),
-//   ),
-// ),
-// SizedBox(height: 16),
-// // GridView with fixed height
-// GridView.count(
-//   crossAxisCount: 2,
-//   crossAxisSpacing: 8,
-//   mainAxisSpacing: 8,
-//   shrinkWrap: true,
-//   physics: NeverScrollableScrollPhysics(), // Disable scrolling in GridView
-//   childAspectRatio: 1.2,
-//   children: [
-//     InkWell(
-//       onTap: () {
-//         Navigator.push(context, MaterialPageRoute(builder: (context) => TotalLeaveRequests()));
-//       },
-//       child: Card(
-//         color: Color(0xFF4769B2),
-//         child: Center(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(Icons.insert_chart, size: 40, color: Colors.white),
-//               SizedBox(height: 12),
-//               Text(
-//                 'Total Leave Requests',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//               Text(
-//                 leaveRequests.length.toString(),
-//                 style: TextStyle(
-//                   fontSize: 24,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//     InkWell(
-//       onTap: () {
-//         Navigator.push(context, MaterialPageRoute(builder: (context) => PendingLeaves()));
-//       },
-//       child: Card(
-//         color: Color(0xFFfcb414),
-//         child: Center(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(Icons.hourglass_empty, size: 40, color: Colors.white),
-//               SizedBox(height: 12),
-//               Text(
-//                 'Pending Requests',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//               Text(
-//                 leaveRequests.where((request) => request['status'] == 'Pending').length.toString(),
-//                 style: TextStyle(
-//                   fontSize: 24,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//     InkWell(
-//       onTap: () {
-//         Navigator.push(context, MaterialPageRoute(builder: (context) => ApprovedLeaves()));
-//       },
-//       child: Card(
-//         color: Colors.green,
-//         child: Center(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(Icons.check_circle, size: 40, color: Colors.white),
-//               SizedBox(height: 12),
-//               Text(
-//                 'Approved Requests',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//               Text(
-//                 leaveRequests.where((request) => request['status'] == 'Approved').length.toString(),
-//                 style: TextStyle(
-//                   fontSize: 24,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//     InkWell(
-//       onTap: () {
-//         Navigator.push(context, MaterialPageRoute(builder: (context) => RejectedLeaves()));
-//       },
-//       child: Card(
-//         color: Colors.red,
-//         child: Center(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.min,
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(Icons.cancel, size: 40, color: Colors.white),
-//               SizedBox(height: 12),
-//               Text(
-//                 'Rejected Requests',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//               Text(
-//                 leaveRequests.where((request) => request['status'] == 'Rejected').length.toString(),
-//                 style: TextStyle(
-//                   fontSize: 24,
-//                   color: Colors.white,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     ),
-//   ],
-// ),

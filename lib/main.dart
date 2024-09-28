@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
       ),
-      home:  const SplashScreen(),
+      home:  SplashScreen(),
       navigatorKey: navigatorKey,
       routes: {
         NotificationScreen.route: (context) => const NotificationScreen(),
